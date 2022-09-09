@@ -1,4 +1,6 @@
+import java.io.PrintWriter
 import scala.io.Source
+import scala.util.Try
 
 object TennisStatsApp extends App {
 
@@ -31,15 +33,11 @@ object TennisStatsApp extends App {
   val headers = parseHeaders(head)
   val matches = records.map(parseLine(_, headers))
 
-//  println(matches.take(5).mkString("\n"))
-
   def filterRecords(playerName: String, month: Int)(records: Iterable[TennisMatch]) = {
     records.filter(record =>
       (record.loserName == playerName || record.winnerName == playerName) &&
         record.date.month == month)
   }
-
-//  println(filterRecords("Daniil Medvedev", 10)(matches).mkString("\n"))
 
   def renderRecord(playerName: String)(record: TennisMatch) = {
     record match {
@@ -52,7 +50,22 @@ object TennisStatsApp extends App {
     }
   }
 
-  println(renderRecord("Daniil Medvedev")
-    (filterRecords("Daniil Medvedev", 10)(matches).head))
+  def writeToFile(fileName: String, playerName: String, month: Int) = {
+    val dataToFile =
+      filterRecords(playerName, month)(matches)
+      .map(renderRecord(playerName))
+      .mkString("\n")
+
+    val writer = new PrintWriter(fileName)
+    writer.println(dataToFile)
+    writer.flush()
+    writer.close()
+  }
+
+  val playerName = args(0)
+  val month = args(1).toInt
+  val outFile = args(2)
+
+  writeToFile(outFile, playerName, month)
 
 }
