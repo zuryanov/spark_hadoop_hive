@@ -1,41 +1,10 @@
-version: "3.3"
+version: "3"
+
 services:
-
-  kafka:
-    image: krisgeus/docker-kafka
-    environment:
-      LOG_RETENTION_HOURS: 1
-      AUTO_CREATE_TOPICS: "true"
-      KAFKA_CREATE_TOPICS: divolte:4:1
-      ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,INTERNAL://localhost:9093
-      LISTENERS: PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:9093
-      SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
-      INTER_BROKER: INTERNAL
-    ports:
-      - 9092:9092
-      - 2181:2181
-
-  divolte:
-    image: godatadriven/divolte
-    environment:
-      DIVOLTE_KAFKA_BROKER_LIST: kafka:9092
-    ports:
-      - 8290:8290
-    depends_on:
-      - kafka
-
-  streamsets:
-    build:
-      context: "."
-      args:
-        SDC_LIBS: streamsets-datacollector-apache-kafka_2_0-lib,streamsets-datacollector-cdh_5_16-lib
-    ports:
-      - 18630:18630
-    volumes:
-      - ./sdc-data:/data
-
   namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    restart: always
     ports:
       - 9870:9870
       - 9000:9000
@@ -48,13 +17,45 @@ services:
 
   datanode:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    restart: always
     volumes:
-      - hadoop_datanode:/hadoop/dfs/name
+      - hadoop_datanode:/hadoop/dfs/data
     environment:
       SERVICE_PRECONDITION: "namenode:9870"
     env_file:
       - ./hadoop.env
+  
+  resourcemanager:
+    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
+    container_name: resourcemanager
+    restart: always
+    environment:
+      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864"
+    env_file:
+      - ./hadoop.env
 
+  nodemanager1:
+    image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
+    container_name: nodemanager
+    restart: always
+    environment:
+      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
+    env_file:
+      - ./hadoop.env
+  
+  historyserver:
+    image: bde2020/hadoop-historyserver:2.0.0-hadoop3.2.1-java8
+    container_name: historyserver
+    restart: always
+    environment:
+      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
+    volumes:
+      - hadoop_historyserver:/hadoop/yarn/timeline
+    env_file:
+      - ./hadoop.env
+  
 volumes:
   hadoop_namenode:
   hadoop_datanode:
+  hadoop_historyserver:
